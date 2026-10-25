@@ -1,0 +1,24 @@
+name = "orn-oncall"
+main = "src/worker.mjs"
+compatibility_date = "2025-09-01"
+
+# The ON CALL page (HTML, CSS, JS). Requests for /api/oncall/* go to the Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Reminders, switch expiry and sign-up notices run every 10 minutes, for every department in its own time zone.
+[triggers]
+crons = ["*/10 * * * *"]
+
+[observability]
+enabled = true
+
+# Call times, hours, reminders and other rules are set per department in the app (Manage → Settings).
+# Non-secret settings. Secrets (keys and tokens) are added with `npx wrangler secret put NAME`
+# or in the Cloudflare dashboard → Workers → orn-oncall → Settings → Variables and Secrets.
+[vars]
+SITE_URL = "https://oncall.ornglobal.com"
+EMAIL_FROM = "ORN Global ON CALL <oncall@ornglobal.com>"
+PHONE_LOGIN_ENABLED = "false"
+REDIRECT_HOME = "true"

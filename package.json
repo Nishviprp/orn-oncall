@@ -1,0 +1,23 @@
+{
+  "name": "orn-global-oncall",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ORN Global ON CALL – multi-hospital on call scheduling",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "preview": "node tests/helpers/dev-server.mjs 8787",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "wrangler": "^4.152.0"
+  }
+}

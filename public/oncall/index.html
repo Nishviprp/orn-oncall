@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ON CALL · ORN Global</title>
+  <meta name="description" content="Sign up for on call, switch calls, get reminders, and print your schedule.">
+  <meta name="theme-color" content="#0f4c81">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">ORN Global</a>
+      <nav class="site-nav" aria-label="Site">
+        <a href="/">Home</a>
+        <a href="/oncall/" class="active" aria-current="page">ON CALL</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="print-header" aria-hidden="true">
+    <div class="print-title">ORN Global · On Call</div>
+    <div id="print-sub"></div>
+  </div>
+
+  <main id="main">
+    <section id="view-loading" class="center-card"><p class="muted">Loading…</p></section>
+
+    <section id="view-fatal" class="center-card" hidden>
+      <h1>ON CALL is not available</h1>
+      <p id="fatal-msg" class="muted"></p>
+    </section>
+
+    <!-- Sign in -->
+    <section id="view-login" class="center-card" hidden>
+      <h1>Sign in to ON CALL</h1>
+      <p class="muted">Use your email or mobile number. We'll send you a one-time code.</p>
+      <div class="segmented" role="tablist" aria-label="Sign in with">
+        <button type="button" role="tab" id="mode-email" class="seg active" aria-selected="true">Email</button>
+        <button type="button" role="tab" id="mode-phone" class="seg" aria-selected="false">Phone number</button>
+      </div>
+      <form id="login-form" class="stack" novalidate>
+        <label for="login-value" id="login-label">Email address</label>
+        <input id="login-value" name="login" type="email" autocomplete="email" inputmode="email" required>
+        <button type="submit" class="btn primary">Send code</button>
+      </form>
+      <form id="code-form" class="stack" hidden novalidate>
+        <p id="code-sent" class="muted"></p>
+        <label for="code-value">Enter the code</label>
+        <input id="code-value" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required>
+        <button type="submit" class="btn primary">Sign in</button>
+        <button type="button" id="code-back" class="btn link">Use a different email or phone</button>
+      </form>
+      <p id="login-msg" class="form-msg" role="alert"></p>
+    </section>
+
+    <!-- App -->
+    <section id="view-app" hidden>
+      <div class="app-head">
+        <div>
+          <h1>ON CALL</h1>
+          <p class="dept-title" id="dept-title"></p>
+          <p class="muted small" id="hello"></p>
+        </div>
+        <div class="head-actions">
+          <div id="dept-picker-wrap" class="dept-picker-wrap" hidden>
+            <label for="dept-picker" class="small muted">Department</label>
+            <select id="dept-picker"></select>
+          </div>
+          <button type="button" id="sign-out" class="btn ghost">Sign out</button>
+        </div>
+      </div>
+
+      <nav class="tabs" role="tablist" aria-label="ON CALL sections">
+        <button type="button" role="tab" class="tab active" data-tab="board" aria-selected="true">Sign up</button>
+        <button type="button" role="tab" class="tab" data-tab="mine" aria-selected="false">My calls</button>
+        <button type="button" role="tab" class="tab" data-tab="switches" aria-selected="false">Switches <span id="switch-badge" class="badge" hidden></span></button>
+        <button type="button" role="tab" class="tab" data-tab="manage" id="tab-manage" aria-selected="false" hidden>Manage</button>
+        <button type="button" role="tab" class="tab" data-tab="admin" id="tab-admin" aria-selected="false" hidden>Admin</button>
+        <button type="button" role="tab" class="tab" data-tab="account" aria-selected="false">Account</button>
+      </nav>
+
+      <div id="notice" class="notice" hidden></div>
+
+      <!-- Sign-up board -->
+      <section id="panel-board" class="panel" role="tabpanel">
+        <div class="week-bar">
+          <button type="button" id="prev-week" class="btn ghost" aria-label="Previous week">‹ Prev</button>
+          <div class="week-label" id="week-label"></div>
+          <button type="button" id="next-week" class="btn ghost" aria-label="Next week">Next ›</button>
+        </div>
+        <div id="period-banner" class="period-banner" hidden></div>
+        <p class="muted small center" id="board-summary"></p>
+        <div class="legend">
+          <span><i class="dot open"></i>Open to you</span>
+          <span><i class="dot mine"></i>Your call</span>
+          <span><i class="dot taken"></i>Filled</span>
+          <span><i class="dot locked"></i>Not open to you yet</span>
+        </div>
+        <div id="board" class="board" aria-live="polite"></div>
+        <div class="row-end"><button type="button" id="print-board" class="btn ghost" hidden>Print this week</button></div>
+      </section>
+
+      <!-- My calls -->
+      <section id="panel-mine" class="panel" role="tabpanel" hidden>
+        <div class="row-between">
+          <h2>My on call schedule</h2>
+          <button type="button" id="print-mine" class="btn primary">Print my schedule</button>
+        </div>
+        <div id="mine-progress" class="progress-list"></div>
+        <div id="mine-upcoming"></div>
+        <h3 class="sub">Recent (last 30 days)</h3>
+        <div id="mine-past"></div>
+        <p class="muted small" id="release-note">Release opens a call to everyone (allowed until your department's cutoff). Give away hands it to a specific colleague any time before it starts.</p>
+      </section>
+
+      <!-- Switches -->
+      <section id="panel-switches" class="panel" role="tabpanel" hidden>
+        <h2>Call switches</h2>
+        <p class="muted small">To give your call to a colleague, go to <strong>My calls</strong> and tap <strong>Give away</strong>. Your colleague accepts, then (if your department requires it) a nurse manager approves. You stay on call until the switch is complete.</p>
+        <div id="approvals-wrap" hidden>
+          <h3 class="sub">Waiting for your approval</h3>
+          <div id="sw-approvals" class="sw-list"></div>
+        </div>
+        <h3 class="sub">Requests for you</h3>
+        <div id="sw-incoming" class="sw-list"></div>
+        <h3 class="sub">Your switches (last 30 days)</h3>
+        <div id="sw-mine" class="sw-list"></div>
+        <div id="decided-wrap" hidden>
+          <h3 class="sub">Recently decided (departments you manage)</h3>
+          <div id="sw-decided" class="sw-list"></div>
+        </div>
+      </section>
+
+      <!-- Manage -->
+      <section id="panel-manage" class="panel" role="tabpanel" hidden>
+        <div class="segmented sub-tabs" role="tablist" aria-label="Manage">
+          <button type="button" class="seg active" data-sub="today">Today</button>
+          <button type="button" class="seg" data-sub="periods">Periods</button>
+          <button type="button" class="seg" data-sub="hours">Hours</button>
+          <button type="button" class="seg" data-sub="staff">Staff</button>
+          <button type="button" class="seg" data-sub="settings">Settings</button>
+        </div>
+
+        <div id="sub-today" class="sub-panel">
+          <div class="row-between">
+            <h2>Who is on call</h2>
+            <input type="date" id="today-date" class="date-input" aria-label="Date">
+          </div>
+          <p class="muted small">Tell each nurse before their shift ends whether they need to stay. They get an email and text right away.</p>
+          <div id="today-list" class="sw-list"></div>
+        </div>
+
+        <div id="sub-periods" class="sub-panel" hidden>
+          <h2>Call periods</h2>
+          <p id="no-periods-note" class="muted" hidden>This department signs up any time, so it doesn't use periods. You can change this under Settings.</p>
+          <form id="period-form" class="card stack" novalidate>
+            <h3>Open a new period</h3>
+            <div class="grid-3">
+              <div class="field"><label for="p-start">Period starts</label><input type="date" id="p-start" required></div>
+              <div class="field"><label for="p-signup">Sign-up starts</label><input type="date" id="p-signup" required></div>
+              <div class="field" id="p-order-wrap"><label for="p-order">Group order (first signs up first)</label><input type="text" id="p-order" placeholder="A, B"><div class="muted small hint" id="p-order-hint"></div></div>
+            </div>
+            <p class="settings-summary small" id="p-preview"></p>
+            <button type="submit" class="btn primary">Open period</button>
+          </form>
+          <div id="period-list" class="sw-list"></div>
+        </div>
+
+        <div id="sub-hours" class="sub-panel" hidden>
+          <div class="row-between">
+            <h2>Call hours</h2>
+            <div class="row-gap">
+              <select id="hours-period" aria-label="Period"></select>
+              <span id="hours-range" class="row-gap" hidden>
+                <input type="date" id="hours-from" class="date-input" aria-label="From">
+                <input type="date" id="hours-to" class="date-input" aria-label="To">
+              </span>
+              <button type="button" id="print-hours" class="btn ghost">Print</button>
+            </div>
+          </div>
+          <p class="muted small" id="hours-summary"></p>
+          <div id="hours-table"></div>
+        </div>
+
+        <div id="sub-staff" class="sub-panel" hidden>
+          <div class="row-between">
+            <h2>Staff list</h2>
+            <div class="row-gap">
+              <button type="button" id="staff-import" class="btn ghost">Paste a list</button>
+              <button type="button" id="staff-add" class="btn primary">Add staff</button>
+            </div>
+          </div>
+          <p class="muted small" id="staff-hint"></p>
+          <div id="staff-import-problems"></div>
+          <div id="staff-table"></div>
+        </div>
+
+        <div id="sub-settings" class="sub-panel" hidden>
+          <section class="card">
+            <h3>General rules</h3>
+            <div id="settings-general"></div>
+          </section>
+          <section class="card">
+            <div class="row-between">
+              <div>
+                <h3>Call times</h3>
+                <p class="muted small">Each call time has its own hours, days, and number of calls (first, second, third).</p>
+              </div>
+              <button type="button" id="block-add" class="btn primary">Add call time</button>
+            </div>
+            <div id="settings-blocks"></div>
+          </section>
+          <section class="card">
+            <div class="row-between">
+              <div>
+                <h3>Shifts</h3>
+                <p class="muted small">Staff shift types, used to decide who can take which call.</p>
+              </div>
+              <button type="button" id="shift-add" class="btn ghost">Add shift</button>
+            </div>
+            <div id="settings-shifts"></div>
+          </section>
+          <section class="card">
+            <div class="row-between">
+              <div>
+                <h3>Who can take each call</h3>
+                <p class="muted small"><strong>Can sign up</strong>: as soon as their sign-up opens. <strong>Vacancies only</strong>: open slots after sign-up closes (or close to the date, for departments that sign up any time).</p>
+              </div>
+              <button type="button" id="rules-save" class="btn primary" hidden>Save</button>
+            </div>
+            <div id="settings-rules"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Admin -->
+      <section id="panel-admin" class="panel" role="tabpanel" hidden>
+        <div class="row-between">
+          <div>
+            <h2>Organizations, hospitals and departments</h2>
+            <p class="muted small">Each department has its own staff, managers and call rules. Each hospital sets its state and time zone.</p>
+          </div>
+          <button type="button" id="admin-add-org" class="btn primary" hidden>Add organization</button>
+        </div>
+        <div id="admin-tree"></div>
+        <div class="row-between admin-section">
+          <h2>Administrators</h2>
+          <button type="button" id="admin-add-admin" class="btn ghost">Add admin</button>
+        </div>
+        <div id="admin-admins"></div>
+      </section>
+
+      <!-- Account -->
+      <section id="panel-account" class="panel" role="tabpanel" hidden>
+        <h2>Account</h2>
+        <form id="name-form" class="stack card" novalidate>
+          <label for="full-name">Full name (shown on schedules)</label>
+          <input id="full-name" type="text" autocomplete="name" maxlength="100" required>
+          <button type="submit" class="btn primary">Save name</button>
+        </form>
+
+        <div class="card">
+          <h3>Where we send confirmations and reminders</h3>
+          <p class="muted small">You can sign in with either one.</p>
+          <div class="contact-row">
+            <div><strong>Email</strong><div id="email-value" class="muted"></div></div>
+            <button type="button" id="email-change" class="btn ghost">Add / change</button>
+          </div>
+          <form id="email-form" class="stack inset" hidden novalidate>
+            <label for="email-new">Email address</label>
+            <input id="email-new" type="email" autocomplete="email" required>
+            <button type="submit" class="btn primary">Send code</button>
+          </form>
+          <form id="email-code-form" class="stack inset" hidden novalidate>
+            <label for="email-code">Code sent to your email</label>
+            <input id="email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required>
+            <button type="submit" class="btn primary">Verify email</button>
+          </form>
+          <div class="contact-row">
+            <div><strong>Mobile phone</strong><div id="phone-value" class="muted"></div></div>
+            <button type="button" id="phone-change" class="btn ghost">Add / change</button>
+          </div>
+          <form id="phone-form" class="stack inset" hidden novalidate>
+            <label for="phone-new">Mobile number</label>
+            <input id="phone-new" type="tel" autocomplete="tel" inputmode="tel" placeholder="(732) 555-1234" required>
+            <button type="submit" class="btn primary">Send code</button>
+          </form>
+          <form id="phone-code-form" class="stack inset" hidden novalidate>
+            <label for="phone-code">Code sent by text</label>
+            <input id="phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required>
+            <button type="submit" class="btn primary">Verify phone</button>
+          </form>
+          <p class="muted small">By adding a mobile number you agree to receive on call texts. Message and data rates may apply. Reply STOP to opt out.</p>
+        </div>
+
+        <div class="card">
+          <h3>Your departments</h3>
+          <ul id="my-departments" class="plain-list"></ul>
+          <p id="admin-roles" class="muted small"></p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog" class="stack">
+      <h2 id="confirm-title">Confirm</h2>
+      <p id="confirm-text"></p>
+      <div class="row-end gap">
+        <button value="cancel" class="btn ghost">Cancel</button>
+        <button value="ok" id="confirm-ok" class="btn primary">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="form-dialog" aria-labelledby="form-dialog-title">
+    <form id="form-dialog-form" class="stack" novalidate>
+      <h2 id="form-dialog-title"></h2>
+      <p id="form-dialog-intro" class="muted"></p>
+      <div id="form-dialog-fields" class="form-fields"></div>
+      <p id="form-dialog-msg" class="form-msg" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="form-dialog-extra" class="btn ghost danger-text" hidden></button>
+        <div class="row-gap push-right">
+          <button type="button" id="form-dialog-cancel" class="btn ghost">Cancel</button>
+          <button type="submit" id="form-dialog-ok" class="btn primary">Save</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
