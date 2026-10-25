@@ -1,28 +1,58 @@
 // Local preview server for testing the page in a browser without Supabase:
 // serves public/ and the real API (src/) backed by an in-memory PostgreSQL with sample data.
 // Usage: node tests/helpers/dev-server.mjs [port]
-// Sign-in is faked: the page's Supabase client is replaced by the browser test, which passes
-// the token ("boss", "mgr", "a", "b", "c", "west") as the user.
+// Sign-in is simulated: the page gets a stand-in Supabase client (preview only, never deployed).
+// Sign in with one of the sample emails below and any 6-digit code.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { btree_gist } from '@electric-sql/pglite/contrib/btree_gist';
 import worker from '../../src/worker.mjs';
 import { setDbForTests, todayInTz, addDays, isoDay } from '../../src/lib.mjs';
 import { fakeSupabase, SUPABASE_LIKE_PARSERS } from './fake-supabase.mjs';
 
-const ROOT = new URL('../../public/', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../../public/', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json' };
 const port = Number(process.argv[2] || 8787);
+
+// Stand-in for the Supabase sign-in client, swapped in through an import map on the preview page only.
+const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+const FAKE_SUPABASE = `
+const WHO = { 'boss@example.com': 'boss', 'mgr@example.com': 'mgr', 'ayana@example.com': 'a', 'juan@example.com': 'b', 'kayla@example.com': 'c', 'west@example.com': 'west' };
+const KEY = 'orn-preview-user';
+const get = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+const set = (v) => { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch {} };
+const session = () => { const t = get(); return t ? { access_token: t, user: { id: t, email: Object.keys(WHO).find((e) => WHO[e] === t) } } : null; };
+export function createClient() {
+  const listeners = [];
+  return { auth: {
+    getSession: async () => ({ data: { session: session() } }),
+    refreshSession: async () => ({ data: { session: session() } }),
+    getUser: async () => ({ data: { user: session()?.user || null } }),
+    onAuthStateChange(fn) { listeners.push(fn); return { data: { subscription: { unsubscribe() {} } } }; },
+    signInWithOtp: async ({ email }) => WHO[(email || '').toLowerCase()] ? { error: null }
+      : { error: { message: 'Preview: use a sample email: ' + Object.keys(WHO).join(', ') } },
+    verifyOtp: async ({ email }) => { const t = WHO[(email || '').toLowerCase()]; if (t) set(t); return { data: { session: session() }, error: null }; },
+    updateUser: async () => ({ error: { message: 'Not available in preview' } }),
+    signOut: async () => { set(null); listeners.forEach((fn) => fn('SIGNED_OUT')); return { error: null }; },
+  } };
+}`;
 
 const ASSETS = {
   async fetch(req) {
     let path = decodeURIComponent(new URL(req.url).pathname);
+    if (path === '/__preview/supabase.js') return new Response(FAKE_SUPABASE, { headers: { 'content-type': TYPES['.js'] } });
     if (path.endsWith('/')) path += 'index.html';
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(ROOT)) return new Response('no', { status: 403 });
     try {
+      if (extname(file) === '.html') {
+        const html = (await readFile(file, 'utf8')).replace('<script type="module"',
+          `<script type="importmap">{"imports":{"${SUPABASE_CDN}":"/__preview/supabase.js"}}</script>\n  <script type="module"`);
+        return new Response(html, { headers: { 'content-type': TYPES['.html'] } });
+      }
       return new Response(await readFile(file), { headers: { 'content-type': TYPES[extname(file)] || 'text/plain' } });
     } catch {
       return new Response('Not found', { status: 404 });
@@ -98,4 +128,14 @@ http.createServer(async (req, res) => {
   const r = await worker.fetch(new Request(`http://localhost:${port}${req.url}`, { method: req.method, headers: req.headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body }), ENV);
   res.writeHead(r.status, Object.fromEntries(r.headers));
   res.end(Buffer.from(await r.arrayBuffer()));
-}).listen(port, () => console.log(`READY http://localhost:${port}/oncall/ (OR=${or})`));
+}).listen(port, () => {
+  console.log(`\nPreview ready: open http://localhost:${port}/oncall/`);
+  console.log('Sign in with any of these emails and any 6-digit code (e.g. 123456):');
+  console.log('  boss@example.com   system admin');
+  console.log('  mgr@example.com    OR nurse manager');
+  console.log('  ayana@example.com  nurse (also in Cath Lab)');
+  console.log('  juan@example.com   nurse');
+  console.log('  kayla@example.com  nurse');
+  console.log('  west@example.com   Cath Lab manager (California)');
+  console.log('Press Ctrl+C to stop.');
+});
